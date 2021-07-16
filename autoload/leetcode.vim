@@ -71,10 +71,11 @@ function! s:SetupProblemListBuffer() abort
     setlocal nospell
     setlocal bufhidden=hide
     setlocal nowrap
-    nnoremap <silent> <buffer> <return> :call <SID>HandleProblemListCR()<cr>
+    nnoremap <silent> <buffer> <return> :call <SID>HandleProblemListCR(g:leetcode_solution_filetype)<cr>
     nnoremap <silent> <buffer> s :call <SID>HandleProblemListS()<cr>
     nnoremap <silent> <buffer> r :call <SID>HandleProblemListR()<cr>
     nnoremap <silent> <buffer> S :call <SID>HandleProblemListSort()<cr>
+    nnoremap <silent> <buffer> f :call <SID>HandleProblemListWithSelectFileTypeCR()<cr>
 
     call s:SetupBasicSyntax()
 
@@ -179,6 +180,7 @@ function! s:PrintProblemList() abort
                 \ '',
                 \ '### Keys',
                 \ '  <cr>  open the problem/go to the topic or company',
+                \ '  f     open the problem with select filetype',
                 \ '  s     view the submissions',
                 \ '  r     refresh',
                 \ '  S     sort by column',
@@ -472,7 +474,56 @@ function! s:ProblemSlugFromFileName() abort
     endif
 endfunction
 
-function! s:HandleProblemListCR() abort
+
+function! s:HandleProblemListWithSelectFileTypeCR() abort
+    let choice = inputlist(['Choose filetype:',
+            \ '1 - cpp',
+            \ '2 - java',
+            \ '3 - python',
+            \ '4 - python3',
+            \ '5 - c',
+            \ '6 - csharp',
+            \ '7 - javascript',
+            \ '8 - ruby',
+            \ '9 - swift',
+            \ '10 - golang',
+            \ '11 - scala',
+            \ '12 - kotlin',
+            \ '13 - rust',
+            \ ])
+    if choice == 1
+        let b:leetcode_time_period = 'cpp'
+    elseif choice == 2
+        let b:leetcode_time_period = 'java'
+    elseif choice == 3
+        let b:leetcode_time_period = 'python'
+    elseif choice == 4
+        let b:leetcode_time_period = 'python3'
+    elseif choice == 5
+        let b:leetcode_time_period = 'c'
+    elseif choice == 6
+        let b:leetcode_time_period = 'csharp'
+    elseif choice == 7
+        let b:leetcode_time_period = 'javascript'
+    elseif choice == 8
+        let b:leetcode_time_period = 'ruby'
+    elseif choice == 9
+        let b:leetcode_time_period = 'swift'
+    elseif choice == 10
+        let b:leetcode_time_period = 'golang'
+    elseif choice == 11
+        let b:leetcode_time_period = 'scala'
+    elseif choice == 12
+        let b:leetcode_time_period = 'kotlin'
+    elseif choice == 13
+        let b:leetcode_time_period = 'rust'
+    else
+        return
+    endif
+    call s:HandleProblemListCR(b:leetcode_time_period)
+endfunction
+
+function! s:HandleProblemListCR(select_filetype) abort
     " Parse the problem number from the line
     let line_nr = line('.')
 
@@ -526,7 +577,7 @@ function! s:HandleProblemListCR() abort
         let problem_id = s:ProblemIdFromNr(line_nr)
         let problem = s:GetProblem(problem_id)
         let problem_slug = problem['slug']
-        let problem_ext = s:SolutionFileExt(g:leetcode_solution_filetype)
+        let problem_ext = s:SolutionFileExt(a:select_filetype)
         let problem_file_name = printf('%s.%s.%s', problem_id,
                     \  s:SlugToFileName(problem_slug),
                     \ problem_ext)
@@ -537,7 +588,7 @@ function! s:HandleProblemListCR() abort
         endif
 
         execute 'rightbelow vnew ' . problem_file_name
-        call leetcode#ResetSolution(1)
+        call leetcode#ResetSolution(1, a:select_filetype)
     endif
 endfunction
 
@@ -665,7 +716,7 @@ function! s:SolutionFileExt(filetype) abort
     return s:file_type_to_ext[a:filetype]
 endfunction
 
-function! leetcode#ResetSolution(with_latest_submission) abort
+function! leetcode#ResetSolution(with_latest_submission, select_filetype) abort
     if s:CheckSignIn() == v:false
         return
     endif
@@ -677,7 +728,7 @@ function! leetcode#ResetSolution(with_latest_submission) abort
         return
     endif
 
-    let filetype = g:leetcode_solution_filetype
+    let filetype = a:select_filetype
     if !has_key(problem['templates'], filetype)
         echo 'the file type is not supported: ' . filetype
         return
