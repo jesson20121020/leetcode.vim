@@ -588,7 +588,7 @@ function! s:HandleProblemListCR(select_filetype) abort
         endif
 
         execute 'rightbelow vnew ' . problem_file_name
-        call leetcode#ResetSolution(1, a:select_filetype)
+        call leetcode#ResetSolution(0, a:select_filetype)
     endif
 endfunction
 
@@ -759,7 +759,7 @@ function! leetcode#ResetSolution(with_latest_submission, select_filetype) abort
     call append('$', code)
     silent! normal! ggdd
 
-    let problem_desc_file_name = printf('[DESCRIPTION] %s.%s', problem['fid'], problem_slug)
+    let problem_desc_file_name = printf('[DESCRIPTION] %s.%s.%s', problem['fid'], problem_slug, filetype)
     if buflisted(problem_desc_file_name)
         execute bufnr(problem_desc_file_name) . 'buffer'
         return
