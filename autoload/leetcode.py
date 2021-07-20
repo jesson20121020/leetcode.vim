@@ -38,7 +38,7 @@ LC_PROBLEM = LC_BASE + '/problems/{slug}/description'
 LC_TEST = LC_BASE + '/problems/{slug}/interpret_solution/'
 LC_SUBMIT = LC_BASE + '/problems/{slug}/submit/'
 LC_SUBMISSIONS = LC_BASE + '/api/submissions/{slug}'
-LC_SUBMISSION = LC_BASE + '/submissions/detail/{submission}/'
+LC_SUBMISSION = LC_BASE + '/graphql'
 LC_CHECK = LC_BASE + '/submissions/detail/{submission}/check/'
 LC_PROBLEM_SET_ALL = LC_BASE + '/problemset/all/'
 LC_PROGRESS_ALL = LC_BASE + '/api/progress/all/'
@@ -71,7 +71,8 @@ def _make_headers():
     headers = {'Origin': LC_BASE,
                'Referer': LC_BASE,
                'X-Requested-With': 'XMLHttpRequest',
-               'X-CSRFToken': session.cookies.get('csrftoken', '')}
+               'X-CSRFToken': session.cookies.get('csrftoken', ''),
+               }
     return headers
 
 
@@ -500,35 +501,81 @@ def _unescape(s):
     return s.encode().decode('unicode_escape')
 
 
+def make_submission_post_data(sid):
+    queryfunc = """
+query mySubmissionDetail($id: ID!) {
+  submissionDetail(submissionId: $id) {
+    id
+    code
+    runtime
+    memory
+    rawMemory
+    statusDisplay
+    timestamp
+    lang
+    passedTestCaseCnt
+    totalTestCaseCnt
+    sourceUrl
+    question {
+      titleSlug
+      title
+      translatedTitle
+      questionId
+      __typename
+    }
+    ... on GeneralSubmissionNode {
+      outputDetail {
+        codeOutput
+        expectedOutput
+        input
+        compileError
+        runtimeError
+        lastTestcase
+        __typename
+      }
+      __typename
+    }
+    submissionComment {
+      comment
+      flagType
+      __typename
+    }
+    __typename
+  }
+}
+"""
+    data = {'operationName': 'mySubmissionDetail', 'variables': {'id': sid}, 'query': queryfunc}
+    import json
+    return json.dumps(data)
+
+
 def get_submission(sid):
     assert is_login()
-    headers = _make_headers()
-    url = LC_SUBMISSION.format(submission=sid)
-    _echoerr(url)
+    headers = {k:v for k, v in _make_headers().items()}
+    headers['content-type'] = 'application/json'
+    url = LC_SUBMISSION
     log.info('get submission request: url="%s" headers="%s"', url, headers)
-    res = session.get(url, headers=headers)
+    res = session.post(url, headers=headers, data=make_submission_post_data(sid))
     log.info('get submission response: status="%s" body="%s"', res.status_code, res.text)
+    _echoerr(res.status_code)
     if res.status_code != 200:
         _echoerr('cannot find the submission: ' + sid)
         return None
 
     # we need to parse the data from the Javascript snippet
-    s = res.text
+    detail = res.json()['data']['submissionDetail']
     submission = {
         'id': sid,
-        'state': _status_to_name(int(_group1(re.search(r"status_code: parseInt\('([^']*)'", s),
-                                             'not found'))),
-        'state': _status_to_name(10),
-        'runtime': _group1(re.search("runtime: '([^']*)'", s), 'not found'),
-        'passed': _group1(re.search("total_correct : '([^']*)'", s), 'not found'),
-        'total': _group1(re.search("total_testcases : '([^']*)'", s), 'not found'),
-        'testcase': _split(_unescape(_group1(re.search("input : '([^']*)'", s), ''))),
-        'answer': _split(_unescape(_group1(re.search("code_output : '([^']*)'", s), ''))),
-        'expected_answer': _split(_unescape(_group1(re.search("expected_output : '([^']*)'", s),
-                                                    ''))),
-        'problem_id': _group1(re.search("questionId: '([^']*)'", s), 'not found'),
-        'slug': _group1(re.search("editCodeUrl: '([^']*)'", s), '///').split('/')[2],
-        'filetype': _group1(re.search("getLangDisplay: '([^']*)'", s), 'not found'),
+        'state': detail['statusDisplay'],
+        'runtime': detail['runtime'],
+        'passed': detail['passedTestCaseCnt'],
+        'total': detail['totalTestCaseCnt'],
+        'testcase': [detail['outputDetail']['input']],
+        'answer': [detail['outputDetail']['codeOutput']],
+        'expected_answer': [detail['outputDetail']['expectedOutput']],
+        'problem_id': detail['question']['questionId'],
+        'slug': detail['question']['titleSlug'],
+        'filetype': detail['lang'],
         'error': [],
         'stdout': [],
     }
@@ -540,30 +587,28 @@ def get_submission(sid):
     # to unscape the string, we do the trick '\\u0010'.encode().decode('unicode_escape') ==> '\n'
     # submission['code'] = _break_code_lines(_unescape(_group1(
     #     re.search("submissionCode: '([^']*)'", s), '')))
-    submission['code'] = _unescape_with_Chinese(
-        _group1(re.search("submissionCode: '([^']*)'", s), ''))
+    submission['code'] = _unescape_with_Chinese(detail['code'])
 
-
-    dist_str = _unescape(_group1(re.search("runtimeDistributionFormatted: '([^']*)'", s),
-                                 '{"distribution":[]}'))
-    dist = json.loads(dist_str)['distribution']
-    dist.reverse()
+    #dist_str = _unescape(_group1(re.search("runtimeDistributionFormatted: '([^']*)'", s),
+    #                             '{"distribution":[]}'))
+    #dist = json.loads(dist_str)['distribution']
+    #dist.reverse()
 
     # the second key "runtime" is the runtime in milliseconds
     # we need to search from the position after the first "runtime" key
-    prev_runtime = re.search("runtime: '([^']*)'", s)
-    if not prev_runtime:
-        my_runtime = 0
-    else:
-        my_runtime = int(_group1(re.search("runtime: '([^']*)'", s[prev_runtime.end():]), 0))
+    #prev_runtime = re.search("runtime: '([^']*)'", s)
+    #if not prev_runtime:
+    #    my_runtime = 0
+    #else:
+    #    my_runtime = int(_group1(re.search("runtime: '([^']*)'", s[prev_runtime.end():]), 0))
 
-    accum = 0
-    for runtime, frequency in dist:
-        accum += frequency
-        if my_runtime >= int(runtime):
-            break
+    #accum = 0
+    #for runtime, frequency in dist:
+    #    accum += frequency
+    #    if my_runtime >= int(runtime):
+    #        break
 
-    submission['runtime_percentile'] = '{:.1f}%'.format(accum)
+    submission['runtime_percentile'] = '{:.1f}%'.format(0)
     return submission
 
 
