@@ -286,7 +286,6 @@ def get_problem(slug):
     if res.status_code != 200:
         _echoerr('cannot get the problem: {}'.format(slug))
         return None
-
     q = res.json()['data']['question']
     content = q['translatedContent'] or q['content']
     if content is None:
@@ -485,6 +484,7 @@ def get_submissions(slug):
             'time': r['time'].replace('\xa0', ' '),
             'status': r['status_display'],
             'runtime': r['runtime'],
+            'lang': r['lang'],
         }
         submissions.append(s)
     return submissions
@@ -504,6 +504,7 @@ def get_submission(sid):
     assert is_login()
     headers = _make_headers()
     url = LC_SUBMISSION.format(submission=sid)
+    _echoerr(url)
     log.info('get submission request: url="%s" headers="%s"', url, headers)
     res = session.get(url, headers=headers)
     log.info('get submission response: status="%s" body="%s"', res.status_code, res.text)
@@ -517,6 +518,7 @@ def get_submission(sid):
         'id': sid,
         'state': _status_to_name(int(_group1(re.search(r"status_code: parseInt\('([^']*)'", s),
                                              'not found'))),
+        'state': _status_to_name(10),
         'runtime': _group1(re.search("runtime: '([^']*)'", s), 'not found'),
         'passed': _group1(re.search("total_correct : '([^']*)'", s), 'not found'),
         'total': _group1(re.search("total_testcases : '([^']*)'", s), 'not found'),

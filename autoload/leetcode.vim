@@ -62,6 +62,18 @@ function! s:SetupBasicSyntax() abort
     hi! link lcHeader Title
 endfunction
 
+function! leetcode#Submission() abort
+    if s:CheckSignIn() == v:false
+        return
+    endif
+    try
+        let problem_slug = s:ProblemSlugFromFileName()
+        call s:ListSubmissions(problem_slug, 0)
+    catch
+        echo "invalid filename, not found submission"
+    endtry
+endfunction
+
 function! s:SetupProblemListBuffer() abort
     setlocal buftype=nofile
     setlocal noswapfile
@@ -1218,6 +1230,7 @@ function! s:ListSubmissions(slug, refresh) abort
     let time_width = s:MaxWidthOfKey(submissions, 'time', 4)
     let id_width = s:MaxWidthOfKey(submissions, 'id', 2)
     let runtime_width = s:MaxWidthOfKey(submissions, 'runtime', 7)
+    let lang_width = s:MaxWidthOfKey(submissions, 'lang', 4)
 
     let output = []
     call add(output, '# '.problem['title'])
@@ -1227,18 +1240,19 @@ function! s:ListSubmissions(slug, refresh) abort
     call add(output, '  r     refresh')
     call add(output, '')
     let format = '| %-' . id_width . 'S | %-' . time_width .
-                \ 'S | %-21S | %-' . runtime_width . 'S |'
-    let header = printf(format, 'ID', 'Time', 'Status', 'Runtime')
+                \ 'S | %-21S | %-' . runtime_width . 'S | %-'. lang_width . 'S |'
+    let header = printf(format, 'ID', 'Time', 'Status', 'Runtime', "Lang")
     let separator= printf(format, repeat('-', id_width),
                 \ repeat('-', time_width), repeat('-', 21),
-                \ repeat('-', runtime_width))
+                \ repeat('-', runtime_width),
+                \ repeat('-', lang_width))
     call extend(output, [header, separator])
     call append('$', output)
 
     let submission_lines = []
     for submission in submissions
         let line = printf(format, submission['id'], submission['time'],
-                    \ submission['status'], submission['runtime'])
+                    \ submission['status'], submission['runtime'], submission['lang'])
         call add(submission_lines, line)
     endfor
 
