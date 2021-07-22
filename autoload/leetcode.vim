@@ -68,7 +68,7 @@ function! leetcode#Submission() abort
     endif
     try
         let problem_slug = s:ProblemSlugFromFileName()
-        call s:ListSubmissions(problem_slug, 0)
+        call s:ListSubmissions(problem_slug, 1)
     catch
         echo "invalid filename, not found submission"
     endtry
@@ -1185,7 +1185,7 @@ function! s:ListSubmissions(slug, refresh) abort
         setlocal buftype=nofile
         setlocal noswapfile
         setlocal nobackup
-        setlocal bufhidden=hide
+        setlocal bufhidden=delete
         setlocal nospell
         setlocal nonumber
         setlocal norelativenumber
