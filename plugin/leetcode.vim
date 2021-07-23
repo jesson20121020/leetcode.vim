@@ -42,4 +42,5 @@ command! -nargs=0 LeetCodeTest call leetcode#TestSolution()
 command! -nargs=0 LeetCodeSubmit call leetcode#SubmitSolution()
 command! -nargs=0 LeetCodeSignIn call leetcode#SignIn(1)
 command! -nargs=0 LeetCodeSubmission call leetcode#Submission()
+command! -nargs=0 LeetCodeProblem call leetcode#Problem()
 

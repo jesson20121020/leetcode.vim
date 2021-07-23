@@ -68,7 +68,7 @@ function! leetcode#Submission() abort
     endif
     try
         let problem_slug = s:ProblemSlugFromFileName()
-        call s:ListSubmissions(problem_slug, 1)
+        call s:ListSubmissions(problem_slug, 0)
     catch
         echo "invalid filename, not found submission"
     endtry
@@ -728,6 +728,58 @@ function! s:SolutionFileExt(filetype) abort
     return s:file_type_to_ext[a:filetype]
 endfunction
 
+function! leetcode#Problem() abort
+    if s:CheckSignIn() == v:false
+        return
+    endif
+
+    let problem_slug = s:ProblemSlugFromFileName()
+    let expr = printf('leetcode.get_problem("%s")', problem_slug)
+    let problem = py3eval(expr)
+    if type(problem) != v:t_dict
+        return
+    endif
+
+    let filetype = s:GuessFileType()
+    if !has_key(problem['templates'], filetype)
+        echo 'the file type is not supported: ' . filetype
+        return
+    endif
+
+    let problem_desc_file_name = printf('[DESCRIPTION] %s.%s.%s', problem['fid'], problem_slug, filetype)
+    if buflisted(problem_desc_file_name)
+        execute bufnr(problem_desc_file_name) . 'buffer'
+        return
+    endif
+
+    let output = []
+    call add(output, s:CommentStart(filetype, problem['title']))
+    let meta_format = '[%s] [AC:%s %s of %s] [filetype:%s]'
+    let meta = printf(meta_format, problem['level'], problem['ac_rate'],
+                \ problem['total_accepted'], problem['total_submission'],
+                \ filetype)
+    call add(output, s:CommentLine(filetype, ''))
+    call add(output, s:CommentLine(filetype, meta))
+    call add(output, s:CommentLine(filetype, ''))
+    for line in problem['desc']
+        call add(output, s:CommentLine(filetype, line))
+    endfor
+    call add(output, s:CommentEnd(filetype))
+
+    execute 'vertical '. 'new ' . problem_desc_file_name
+    "execute 'leftabove '. len(output). 'new ' . problem_desc_file_name
+    call append('$', output)
+    silent! normal! ggdd
+    silent! normal! gggqG
+
+    setlocal nomodifiable
+    setlocal buftype=nofile
+    setlocal nospell
+    setlocal bufhidden=delete
+
+    execute 'wincmd j'
+endfunction
+
 function! leetcode#ResetSolution(with_latest_submission, select_filetype) abort
     if s:CheckSignIn() == v:false
         return
@@ -1211,6 +1263,7 @@ function! s:ListSubmissions(slug, refresh) abort
         hi! lcFailure term=bold gui=bold ctermfg=red guifg=red
         hi! lcNA ctermfg=gray guifg=gray
     endif
+
 
     let b:leetcode_problem_slug = a:slug
 
