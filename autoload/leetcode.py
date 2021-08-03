@@ -149,6 +149,7 @@ def get_progress():
     headers = _make_headers()
     res = session.get(LC_PROGRESS_ALL, headers=headers)
     if res.status_code != 200:
+        _echoerr(res.json()['detail'])
         _echoerr('cannot get the progress')
         return None
 
@@ -169,9 +170,11 @@ def load_session_cookie(browser):
     if session_cookie_raw is None:
         import subprocess
         if 'Microsoft' in subprocess.getoutput("uname -a"):
-            output = subprocess.getoutput("cmd.exe /c python3.exe C:/Users/xdcn4066/wsl_get_seeion_cookie.py %s %s" % (browser, LC_BASE))
+            output = subprocess.getoutput("cmd.exe /c python3.exe `wslpath -w %s` %s %s" % (os.path.join(os.path.dirname(__file__), 'wsl_get_session_cookie.py'), browser, LC_BASE))
+            if 'CMD.EXE was started' in output:
+                output = '\n'.join(output.split('\n')[3:])
             try:
-                session_cookie_raw = '\n'.join(output.split('\n')[3:])
+                session_cookie_raw = output
                 session_cookie = pickle.loads(session_cookie_raw.encode('utf-8'))
             except:
                 _echoerr(output)
